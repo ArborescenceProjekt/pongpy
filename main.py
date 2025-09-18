@@ -3,9 +3,13 @@
 import pygame, time, random
 from players import Player
 from ball import Ball
-from file_manager import ressource_path
+from file_manager import ressource_path, Sound_Manager
 
 width, height = 1000, 500
+
+sm = Sound_Manager()
+pygame.mixer.init()
+pygame.mixer.music.load("Sounds/Glitched/noise.wav")
 
 class Pong:
 
@@ -13,15 +17,20 @@ class Pong:
         self.screen = screen
         self.running = True
         self.started = False
+        self.alpha = 0
+        self.volume = 0
         self.clock = pygame.time.Clock()
-        self.player1 = Player(20, height/2 - 50)
-        self.player2 = Player(width - 40, height/2 - 50)
-        self.ball = Ball(width/2, height/2)
+        self.player1 = Player(0, 0)
+        self.player2 = Player(0, 0)
+        self.ball = Ball(width/2, height/2, self.alpha)
         self.font = pygame.font.SysFont(None, 48)
         self.ground_color1 = [random.randint(0, 100),random.randint(0, 100),random.randint(0, 100), 30]
         self.ground_color2 = [random.randint(0, 100),random.randint(0, 100),random.randint(0, 100), 30]
         self.score1 = 0
         self.score2 = 0
+        self.scr = pygame.image.load(ressource_path("Images/lines.png")).convert_alpha()
+        self.scr_rect = self.scr.get_rect(center=(width / 2, height / 2))
+
 
     def handling_event(self):
         for event in pygame.event.get():
@@ -79,13 +88,18 @@ class Pong:
 
             if score == "player1":
                 self.score1 += 1
+                if ((self.score1 > 9) or (self.score2 > 9)) and self.alpha < 252:
+                    self.alpha += 7
                 self.reset_round()
             if score == "player2":
                 self.score2 += 1
+                if ((self.score1 > 9) or (self.score2 > 9)) and self.alpha < 252:
+                    self.alpha += 7
                 self.reset_round()
 
-        if (self.score1 or self.score2) >= 9:
-            self.ball.change_image(ressource_path("Images/balllost.png"))
+
+
+
 
 
     def score(self, score, x, y, screen):
@@ -101,7 +115,6 @@ class Pong:
             screen.blit(image, rect)
 
 
-
     def display(self):
         self.screen.fill([200,200,200])
         self.ball.draw(self.screen)
@@ -111,16 +124,22 @@ class Pong:
         ground_player_2 = pygame.Surface((190, height), pygame.SRCALPHA)
         ground_player_2.fill(self.ground_color2)
         screen.blit(ground_player_2,(width - 190 - 15, 0))
-        self.score(self.score1, width / 4 * 1.5 - 66 , 20, screen)
-        self.score(self.score2, width / 4 * 2.5, 20, screen)
         self.player1.draw(self.screen)
         self.player2.draw(self.screen)
+        self.score(self.score1, width / 4 * 1.5 - 66 , 20, screen)
+        self.score(self.score2, width / 4 * 2.5, 20, screen)
+
+        if (self.score1 > 9) or (self.score2 > 9):
+            self.scr.set_alpha(self.alpha)
+            if self.alpha > 139:
+                self.ball.change_image(ressource_path("Images/balllost.png"))
+            screen.blit(self.scr, self.scr_rect)
 
 
         if not self.started:
-            self.player1 = Player(20, height/2 - 50)
-            self.player2 = Player(width - 40, height/2 - 50)
-            self.ball = Ball(width/2, height/2)
+            self.player1 = Player(20 + 75, height/2 - 50) # +75, center of the collision zone
+            self.player2 = Player(width - 40 - 75, height/2 - 50) # -40 for width of the sprite and to fit un the collision zone, -75 to be in the center
+            self.ball = Ball(width/2, height/2, self.alpha)
             overlay = pygame.Surface((width, height), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 120))
             screen.blit(overlay,(0, 0))
@@ -138,7 +157,17 @@ class Pong:
         self.ball.velocity = [0, 0]
         self.ball.rect.center = (width / 2, height / 2)
         self.started = False
-        pygame.mixer.Sound(ressource_path("Sounds/point.wav")).play()
+        if self.alpha > 140:
+            sm.play("sfx_point_glitched")
+        else:
+            sm.play("sfx_point")
+
+        if self.alpha > 69:
+            self.volume += 0.1
+            if self.volume >= 1:
+                self.volume = 1
+            pygame.mixer.music.set_volume(self.volume)
+
 
     def run(self):
         while self.running:
@@ -149,10 +178,12 @@ class Pong:
 
 
 pygame.init()
+pygame.mixer.music.set_volume(0)
+pygame.mixer.music.play(-1)
 screen = pygame.display.set_mode((width, height))
 icon = pygame.image.load("icon.png")
 pygame.display.set_icon(icon)
-pygame.display.set_caption("PONGPY! v1.0")
+pygame.display.set_caption("PONGPY! v1.5")
 game = Pong(screen)
 game.run()
 
